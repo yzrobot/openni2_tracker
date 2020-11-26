@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<launch>
+  <node pkg="openni2_tracker" type="openni2_tracker" name="openni2_tracker" output="screen">
+    <param name="camera_frame_id" type="string" value="camera_depth_frame"/>
+  </node>
+  
+  <node pkg="tf" type="static_transform_publisher" name="world_to_tracker" args=" 0 0 0.8 1.57 0 1.57  /world /camera_depth_frame 100"/>
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find openni2_tracker)/launch/openni2_tracker.rviz"/>
+</launch>
