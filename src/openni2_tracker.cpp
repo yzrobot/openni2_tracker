@@ -28,12 +28,8 @@
  **/
 
 #include <ros/ros.h>
-#include <ros/package.h>
-#include <tf/transform_broadcaster.h>
-#include <kdl/frames.hpp>
+#include <tf2_ros/transform_broadcaster.h>
 #include <NiTE.h>
-
-using std::string;
 
 #define MAX_USERS 10
 bool g_visibleUsers[MAX_USERS] = {false};
@@ -42,11 +38,14 @@ nite::SkeletonState g_skeletonStates[MAX_USERS] = {nite::SKELETON_NONE};
 void updateUserState(const nite::UserData &user, unsigned long long ts) {
   if(user.isNew()) {
     printf("[%08llu] User #%d:\t%s\n", ts, user.getId(), "New");
-  } else if (user.isVisible() && !g_visibleUsers[user.getId()]) {
+  }
+  else if (user.isVisible() && !g_visibleUsers[user.getId()]) {
     printf("[%08llu] User #%d:\t%s\n", ts, user.getId(), "Visible");
-  } else if (!user.isVisible() && g_visibleUsers[user.getId()]) {
+  }
+  else if (!user.isVisible() && g_visibleUsers[user.getId()]) {
     printf("[%08llu] User #%d:\t%s\n", ts, user.getId(), "Out of Scene");
-  } else if (user.isLost()) {
+  }
+  else if (user.isLost()) {
     printf("[%08llu] User #%d:\t%s\n", ts, user.getId(), "Lost");
   }
   
@@ -74,22 +73,28 @@ void updateUserState(const nite::UserData &user, unsigned long long ts) {
   }
 }
 
-/* publish skeleton to /tf */
-void publishTransform(const nite::SkeletonJoint &joint, double confidence, tf::TransformBroadcaster &br, std::string &camera_frame_id, std::string joint_frame_id) {
-  if(joint.getPositionConfidence() > confidence) {
-    tf::Transform transform;
-    transform.setOrigin(tf::Vector3(joint.getPosition().x / 1000.0,
-				    joint.getPosition().y / 1000.0,
-				    joint.getPosition().z / 1000.0));
-    transform.setRotation(tf::Quaternion(0, 0, 0, 1));
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), camera_frame_id, joint_frame_id));
-  }
-}
-
 int main(int argc, char **argv) {
+  const std::map<nite::JointType, std::string> joints = {
+    {nite::JOINT_HEAD,           "head"},
+    {nite::JOINT_NECK,           "neck"}, 
+    {nite::JOINT_LEFT_HAND,      "left_hand"},
+    {nite::JOINT_LEFT_ELBOW,     "left_elbow"},
+    {nite::JOINT_LEFT_SHOULDER,  "left_shoulder"},
+    {nite::JOINT_RIGHT_HAND,     "right_hand"},
+    {nite::JOINT_RIGHT_ELBOW,    "right_elbow"},
+    {nite::JOINT_RIGHT_SHOULDER, "right_shoulder"},
+    {nite::JOINT_RIGHT_FOOT,     "right_foot"},
+    {nite::JOINT_RIGHT_KNEE,     "right_knee"},
+    {nite::JOINT_RIGHT_HIP,      "right_hip"},
+    {nite::JOINT_LEFT_FOOT,      "left_foot"},
+    {nite::JOINT_LEFT_KNEE,      "left_knee"},
+    {nite::JOINT_LEFT_HIP,       "left_hip"},
+    {nite::JOINT_TORSO,          "torso"},
+  };
+  
   ros::init(argc, argv, "openni2_tracker");
   ros::NodeHandle private_nh("~");
-  tf::TransformBroadcaster br;
+  tf2_ros::TransformBroadcaster br;
   
   std::string camera_frame_id;
   private_nh.param<std::string>("camera_frame_id", camera_frame_id, "camera_depth_frame");
@@ -124,30 +129,50 @@ int main(int argc, char **argv) {
 	if(user.isNew()) {
 	  ROS_INFO_STREAM("Found a new user.");
 	  userTracker.startSkeletonTracking(user.getId());
-	} else if(user.getSkeleton().getState() == nite::SKELETON_TRACKED) {
+	}
+	else if(user.getSkeleton().getState() == nite::SKELETON_TRACKED) {
 	  ROS_INFO_STREAM("Now tracking user " << user.getId());
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_HEAD), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/head");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_NECK), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/neck");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_TORSO), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/torso");
+	  const nite::Skeleton skeleton = user.getSkeleton();
 	  
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_LEFT_SHOULDER), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/left_shoulder");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_LEFT_ELBOW), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/left_elbow");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_LEFT_HAND), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/left_hand");
+	  geometry_msgs::TransformStamped transform;
+	  transform.header.stamp = ros::Time::now();
+	  transform.header.frame_id = camera_frame_id;
+	  
+	  for(const auto jointNamePair : joints) {
+	    const nite::SkeletonJoint& joint = skeleton.getJoint(jointNamePair.first);
 
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_RIGHT_SHOULDER), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/right_shoulder");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_RIGHT_ELBOW), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/right_elbow");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_RIGHT_HAND), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/right_hand");
+	    if(joint.getPositionConfidence() > confidence) {
+	      nite::Point3f position = joint.getPosition();
+	      nite::Quaternion orientation = joint.getOrientation();
+	    
+	      // If the orientation isn't a unit quaternion, replace it with the identy quaternion
+	      // (Should only occur for hands and feet)
+	      if(orientation.x * orientation.x + 
+		 orientation.y * orientation.y +
+		 orientation.z * orientation.z < 0.001) {
+		orientation = nite::Quaternion(1,0,0,0);
+	      }
+	    
+	      std::stringstream frame;
+	      frame << jointNamePair.second << "_" << user.getId();
+	    
+	      transform.child_frame_id = frame.str();
+	      transform.transform.translation.x = position.x / 1000.0;
+	      transform.transform.translation.y = position.y / 1000.0;
+	      transform.transform.translation.z = position.z / 1000.0;
 
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_LEFT_HIP), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/left_hip");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_LEFT_KNEE), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/left_knee");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_LEFT_FOOT), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/left_foot");
+	      transform.transform.rotation.x = orientation.x;
+	      transform.transform.rotation.y = orientation.y;
+	      transform.transform.rotation.z = orientation.z;
+	      transform.transform.rotation.w = orientation.w;
 
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_RIGHT_HIP), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/right_hip");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_RIGHT_KNEE), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/right_knee");
-	  publishTransform(user.getSkeleton().getJoint(nite::JOINT_RIGHT_FOOT), confidence, br, camera_frame_id, "/user_"+std::to_string(user.getId())+"/right_foot");
+	      br.sendTransform(transform);
+	    }
+	  }
 	}
       }
-    } else {
+    }
+    else {
       ROS_WARN_STREAM("Get next frame failed.");
     }
     ros::spinOnce();
