@@ -42,5 +42,5 @@ cd ..
 catkin_make
 ```
   - Run
-  - If you run `rosrun openni2_tracker openni2_tracker` you might get an error `Could not find data file ./NiTE2/s.dat
+If you run `rosrun openni2_tracker openni2_tracker` you might get an error `Could not find data file ./NiTE2/s.dat
 current working directory = ~/catkin_ws`. So it's better to run `roslaunch openni2_tracker openni2_tracker.launch` and establish a symbolic link before that `ln -s ~/catkin_ws/src/openni2_tracker/NiTE-Linux-x64-2.2/Redist/NiTE2 ~/.ros/NiTE2`.
