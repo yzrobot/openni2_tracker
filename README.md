@@ -1,5 +1,7 @@
 # openni2_tracker
 
+![output](output.gif)
+
 The *openni2_tracker* broadcasts the OpenNI skeleton frames using [ROS tf](http://wiki.ros.org/tf). It is the new version of the [openni_tracker](https://github.com/ros-drivers/openni_tracker) using [OpenNI2](https://structure.io/openni) and NiTE2. The original version can be found [here](https://github.com/ros-drivers/openni2_tracker).
 
 *openni2_tracker* can be used with various sensors, including *Xtion PRO LIVE*, *Kinect 2*, *RealSense D4xx*, etc. The following takes **Intel RealSense D455** as an example to introduce the installation steps. Please test other cameras yourself and **very welcome to push related tutorials**.

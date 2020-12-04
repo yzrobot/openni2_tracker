@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="manager"         default="standalone_nodelet"   doc="manager name"/>
+  <arg name="camera_frame_id" default="camera_depth_frame"   doc="camera farame_id for output"/>
+  <arg name="is_standalone"   default="true"                 doc="set true is you want to start standalone manager"/>
+  <arg name="depth_image"     default="depth/image_rect_raw" doc="image topic to start tracker node, only for is_standalone=false"/>
+  
+  <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen" if="$(arg is_standalone)"/>
+  
+  <node name="openni2_tracker_nodelet" pkg="nodelet" type="nodelet" args="load openni2_tracker/OpenNI2TrackerNodelet $(arg manager)" output="screen">
+    <remap from="image" to="$(arg depth_image)"/>
+    <param name="is_standalone" value="$(arg is_standalone)"/>
+    <param name="camera_frame_id" value="$(arg camera_frame_id)"/>
+  </node>
+  
+  <node pkg="tf" type="static_transform_publisher" name="world_to_tracker" args=" 0 0 0.8 1.57 0 1.57  /world /camera_depth_frame 100"/>
+  <node pkg="tf" type="static_transform_publisher" name="world_to_camera" args=" 0 0 0.8 1.57 3.14 1.57  /world /camera_depth_optical_frame 100"/>
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find openni2_tracker)/launch/openni2_tracker_nodelet.rviz"/>
+</launch>

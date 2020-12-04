@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="camera" default="camera"/>
+  <arg name="manager" value="realsense2_camera_manager"/>
+
+  <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+    <arg name="filters" value="pointcloud"/>
+  </include>
+
+  <group ns="$(arg camera)">
+    <include file="$(find openni2_tracker)/launch/openni2_tracker_nodelet_standalone.launch">
+      <arg name="manager"         value="$(arg manager)"/>
+      <arg name="depth_image"     value="depth/image_rect_raw"/>
+      <arg name="camera_frame_id" value="camera_depth_frame"/>
+      <arg name="is_standalone"   value="false"/> <!-- to share nodelet manager launched at openni2.launch -->
+    </include>
+  </group>
+</launch>
